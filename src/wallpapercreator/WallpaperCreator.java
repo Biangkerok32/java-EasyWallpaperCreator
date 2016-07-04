@@ -284,6 +284,8 @@ public class WallpaperCreator extends JFrame {
             int srcCX = config.overlayImage.getWidth(), srcCY = config.overlayImage.getHeight();
             
             if( config.imgStyle.equals( "CENTER" ) ) {
+                // This could possibly crop the overlay image if it is larger
+                // then the destination image.
                 int x = (outCX-srcCX)/2, y = (outCY-srcCY)/2;
                 dcOut.drawImage( config.overlayImage, x, y, null );
                 
@@ -400,8 +402,10 @@ public class WallpaperCreator extends JFrame {
 
         @Override
         public void removeUpdate( DocumentEvent e ) {
-            config.imgCX = Integer.parseInt( lblWidth.getText() );
-            updateImages();
+            if( lblWidth.getText().length() > 0 ) {
+                config.imgCX = Integer.parseInt( lblWidth.getText() );
+                updateImages();
+            }
         }
 
         @Override
@@ -419,8 +423,10 @@ public class WallpaperCreator extends JFrame {
 
         @Override
         public void removeUpdate( DocumentEvent e ) {
-            config.imgCY = Integer.parseInt( lblHeight.getText() );
-            updateImages();
+            if( lblHeight.getText().length() > 0 ) {
+                config.imgCY = Integer.parseInt( lblHeight.getText() );
+                updateImages();
+            }
         }
 
         @Override
@@ -473,6 +479,31 @@ public class WallpaperCreator extends JFrame {
             switch( cmd ) {
 
                 case "file.New": {
+                    Dimension screen = Toolkit.getDefaultToolkit().getScreenSize();
+
+                    // Reset all data members
+                    if( config.overlayImage != null ) {
+                        config.overlayImage.flush();
+                        config.overlayImage = null;
+                    }
+                    
+                    config.imgCX = screen.width;
+                    config.imgCY = screen.height;
+                    config.bgColor = new Color( 0, 0, 0, 255 );
+                    config.imgSrc = "";
+                    config.memDest = "";
+                    config.memDestFormat = "png";
+                    config.imgStyle = "CENTER";
+                    config.isModified = false;
+                    
+                    // And reset the UI controls as well
+                    lblWidth.setText( Integer.toString( config.imgCX ) );
+                    lblHeight.setText( Integer.toString( config.imgCY ) );
+                    lblBgColor.setText( "FF000000" );
+                    lblOverlay.setText( "" );
+                    lblCombo.setSelectedIndex( 0 );
+                    lblCombo.setEnabled( false );
+                    updateImages();
                     break;
                 }
 
@@ -538,7 +569,7 @@ public class WallpaperCreator extends JFrame {
                 }
                 
                 case "help.About": {
-                    
+                    showMessageDialog( null, "Command not implemented!", "Information", JOptionPane.INFORMATION_MESSAGE );
                     break;
                 }
             }
