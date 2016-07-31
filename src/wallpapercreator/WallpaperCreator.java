@@ -21,6 +21,7 @@ import java.awt.event.WindowEvent;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.util.Arrays;
 import javax.imageio.ImageIO;
 import javax.swing.JCheckBoxMenuItem;
 import javax.swing.JColorChooser;
@@ -30,7 +31,6 @@ import javax.swing.JMenu;
 import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
-import static javax.swing.JOptionPane.showMessageDialog;
 import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
 import javax.swing.SwingUtilities;
@@ -41,6 +41,8 @@ import javax.swing.event.DocumentListener;
 import javax.swing.event.PopupMenuEvent;
 import javax.swing.event.PopupMenuListener;
 import javax.swing.filechooser.FileNameExtensionFilter;
+import wallpapercreator.ui.AboutDialog;
+import wallpapercreator.ui.ButtonBar;
 import wallpapercreator.ui.HR;
 import wallpapercreator.ui.HelpDialog;
 import wallpapercreator.ui.LabelComboBox;
@@ -62,11 +64,13 @@ public class WallpaperCreator extends JFrame {
     public final static String TAG = WallpaperCreator.class.getSimpleName();
     public static WallpaperCreator theApp = null;
     public final static String TITLE = "Easy Wallpaper Creator";
-        
+    
+    private String donateURL = "https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=william%2eweckel%40gmail%2ecom&lc=US&item_name=ShinobiSoft%20Software&currency_code=USD&bn=PP%2dDonationsBF%3abtn_donateCC_LG%2egif%3aNonHosted";
     private int mMinCX = 1024;
-    private int mMinCY = (int)(mMinCX/16)*9;//(mMinCX/4)*3;(mMinCX*0.75);
+    private int mMinCY = (int)(mMinCX/16)*9; // 16:9 frame height ratio // (mMinCX/4)*3; // 4:3 frame height ratio // (mMinCX*0.75); // Default frame height. Same as 4:3
     
     private JMenuBar mMenubar = null;
+    private ButtonBar mToolbar = null;
     private JPanel mClient = null;
     private LabelEdit lblWidth;
     private LabelEdit lblHeight;
@@ -81,6 +85,8 @@ public class WallpaperCreator extends JFrame {
     
     private AppResource     res;
     private Config          config;
+    
+    private static FileNameExtensionFilter lastFilter = null;
     
     @SuppressWarnings("OverridableMethodCallInConstructor")
     public WallpaperCreator() {
@@ -101,6 +107,17 @@ public class WallpaperCreator extends JFrame {
         mClient = new JPanel();
         setContentPane( mClient );
         mClient.setLayout( new BorderLayout() );
+        
+        mToolbar = new ButtonBar( res );
+        mToolbar.getButton( 0 ).addActionListener( actionHandler );
+        mToolbar.getButton( 1 ).addActionListener( actionHandler );
+        mToolbar.getButton( 3 ).addActionListener( actionHandler );
+        mToolbar.getButton( 5 ).addActionListener( actionHandler );
+        mToolbar.getButton( 7 ).addActionListener( actionHandler );
+        mToolbar.getButton( 1 ).setEnabled( false );
+        mToolbar.getButton( 3 ).setEnabled( false );
+        
+        mClient.add( mToolbar, BorderLayout.NORTH );
         
         PropertiesPanel pp = new PropertiesPanel();
         JPanel p1 = new JPanel();
@@ -180,6 +197,8 @@ public class WallpaperCreator extends JFrame {
                             config.isModified = true;
                             updateImages();
                             lblCombo.setEnabled( true );
+                            mToolbar.getButton( 1 ).setEnabled( true );
+                            mToolbar.getButton( 3 ).setEnabled( true );
                         }
                     } catch (IOException ex) {}
                     
@@ -194,13 +213,24 @@ public class WallpaperCreator extends JFrame {
         lblCombo.addItemListener( new ItemListener() {
             @Override
             public void itemStateChanged( ItemEvent e ) {
-                if( lblCombo.getSelectedIndex() == 0 )
-                    config.imgStyle = "CENTER";
-                else if( lblCombo.getSelectedIndex() == 1 )
-                    config.imgStyle = "STRETCH";
-                else if( lblCombo.getSelectedIndex() == 2 )
-                    config.imgStyle = "TILE";
-                updateImages();
+                int index = lblCombo.getSelectedIndex();
+                switch( index ) {
+                    
+                    case 0:
+                        config.imgStyle = "CENTER";
+                        break;
+                        
+                    case 1:
+                        config.imgStyle = "STRETCH";
+                        break;
+                        
+                    case 2:
+                        config.imgStyle = "TILE";
+                        break;
+                }
+                
+                if( index >= 0 && index <= 2 )
+                    updateImages();
             }
         } );
         
@@ -214,7 +244,7 @@ public class WallpaperCreator extends JFrame {
         preview = new PreviewView();
         preview.addComponentListener( new ComponentListener() {
             @Override
-            public void componentResized(ComponentEvent e) {
+            public void componentResized( ComponentEvent e ) {
                 updatePreview();
             }
 
@@ -234,36 +264,59 @@ public class WallpaperCreator extends JFrame {
         sbar.addPanel( 200 );
         sbar.addPanel( 200 );
         sbar.addPanel( 200 );
-        
         mClient.add( sbar, BorderLayout.SOUTH );
         
         setLocationRelativeTo( null );
         addWindowListener( new FrameListener() );
         setVisible( true );
+        updateImages();
     }
     
     /**
      * @param args the command line arguments
      */
     public static void main( final String[] args ) {
-        try {
-            UIManager.setLookAndFeel( "com.jgoodies.looks.plastic.PlasticXPLookAndFeel" );
-        } catch ( ClassNotFoundException ex ) {
-            System.out.println( "UIManager.setLookAndFeel(): Class Not Found Exception" );
-        } catch ( UnsupportedLookAndFeelException ex ) { 
-            System.out.println( "UIManager.setLookAndFeel(): Unsupported Look And Feel Exception" );
-        } catch ( InstantiationException ex ) {
-            System.out.println( "UIManager.setLookAndFeel(): Instantiation Exception" );
-        } catch ( IllegalAccessException ex ) {
-            System.out.println( "UIManager.setLookAndFeel(): Illegal Access Exception" );
-        } 
+        // Add jgoodies-common-1.8.1.jar and jgoodies-looks-2.7.0.jar to your project libraries
+        boolean[] bResults = new boolean[] { false, false };
+        int iter = 0;
+        
+        // This checks for the jgoodies libraries
+        String packages[] = { "com.jgoodies.looks.plastic.PlasticXPLookAndFeel", "com.jgoodies.common.base.SystemUtils" };
+        for ( String pkg : packages ) {
+            
+            try {
+                Class<?> cls = (Class<?>)Class.forName( pkg );
+                bResults[ iter ] = (cls != null);
+            } catch ( ClassNotFoundException uncaught ) {
+                System.out.println( "ClassNotFoundException : " + pkg );
+            } catch ( NoClassDefFoundError e ) {
+                // We catch the error to avoid killing the application
+                System.out.println( "NoClassDefFoundError : " + pkg );
+            }
+            
+            iter++;
+        }
+        
+        // If both jgoodies libraries exist, set the LookAndFeel
+        if( bResults[ 0 ] && bResults[ 1 ] ) {
+            try {
+                UIManager.setLookAndFeel( "com.jgoodies.looks.plastic.PlasticXPLookAndFeel" );
+            } catch ( ClassNotFoundException ex ) {
+                System.out.println( "UIManager.setLookAndFeel(): Class Not Found Exception" );
+            } catch ( UnsupportedLookAndFeelException ex ) { 
+                System.out.println( "UIManager.setLookAndFeel(): Unsupported Look And Feel Exception" );
+            } catch ( InstantiationException ex ) {
+                System.out.println( "UIManager.setLookAndFeel(): Instantiation Exception" );
+            } catch ( IllegalAccessException ex ) {
+                System.out.println( "UIManager.setLookAndFeel(): Illegal Access Exception" );
+            }
+        }
         
         SwingUtilities.invokeLater( new Runnable() {
             
             @Override
             public void run() {
                 theApp = new WallpaperCreator();
-                theApp.updateImages();
             }
         });
     }
@@ -284,6 +337,7 @@ public class WallpaperCreator extends JFrame {
             int srcCX = config.overlayImage.getWidth(), srcCY = config.overlayImage.getHeight();
             
             if( config.imgStyle.equals( "CENTER" ) ) {
+                // FIXME:
                 // This could possibly crop the overlay image if it is larger
                 // then the destination image.
                 int x = (outCX-srcCX)/2, y = (outCY-srcCY)/2;
@@ -306,12 +360,12 @@ public class WallpaperCreator extends JFrame {
                         x += srcCX;
                 }
             }
-            sbar.setText( 1, "Overlay Image:  " + srcCX + "x" + srcCY );
+            sbar.setText( 1, "Overlay Image:  " + srcCX + " x " + srcCY );
             dcOut.dispose();
         } else
-            sbar.setText( 1, "Overlay Image:  0x0" );
+            sbar.setText( 1, "Overlay Image:  0 x 0" );
         
-        sbar.setText( 0, "Output Image:  " + config.imgCX + "x" + config.imgCY );
+        sbar.setText( 0, "Output Image:  " + config.imgCX + " x " + config.imgCY );
         updatePreview();
     }
     
@@ -327,7 +381,7 @@ public class WallpaperCreator extends JFrame {
         dcPreview.dispose();
 
         preview.setImage( config.previewImage );
-        sbar.setText( 2, "Preview Image:  " + preCX + "x" + preCY );
+        sbar.setText( 2, "Preview Image:  " + preCX + " x " + preCY );
     }
     
     
@@ -365,12 +419,15 @@ public class WallpaperCreator extends JFrame {
         
         JMenu helpMenu = new JMenu( "Help" );
         JMenuItem helpContents = Menu.menuItem( "&Contents\tF1", "help.Contents", actionHandler );
-        JMenuItem helpAbout = Menu.menuItem("&About Wallpaper Creator", "help.About", actionHandler );
+        JMenuItem helpDonate = Menu.menuItem( "&Donate to ShinobiSoft Software", "help.Donate", actionHandler );
+        JMenuItem helpAbout = Menu.menuItem( "&About Wallpaper Creator", "help.About", actionHandler );
         
         helpContents.setIcon( res.getIcon( "res/menu/helpContents.png" ) );
         helpAbout.setIcon( res.getIcon( "res/menu/helpAbout.png" ) );
         
         helpMenu.add( helpContents );
+        helpMenu.addSeparator();
+        helpMenu.add( helpDonate );
         helpMenu.addSeparator();
         helpMenu.add( helpAbout );
         
@@ -503,6 +560,8 @@ public class WallpaperCreator extends JFrame {
                     lblOverlay.setText( "" );
                     lblCombo.setSelectedIndex( 0 );
                     lblCombo.setEnabled( false );
+                    mToolbar.getButton( 1 ).setEnabled( false );
+                    mToolbar.getButton( 3 ).setEnabled( false );
                     updateImages();
                     break;
                 }
@@ -524,19 +583,27 @@ public class WallpaperCreator extends JFrame {
 
                 case "file.SaveAs": {
                     JFileChooser dlg = new JFileChooser();
-                    FileNameExtensionFilter gifFilter = new FileNameExtensionFilter( "GIF Images", "gif" );
-                    FileNameExtensionFilter jpgFilter = new FileNameExtensionFilter( "JPG Images", "jpg" );
-                    FileNameExtensionFilter pngFilter = new FileNameExtensionFilter( "PNG Images", "png" );
+                    
+                    FileNameExtensionFilter gifFilter = new FileNameExtensionFilter( "GIF images", "gif" );
+                    FileNameExtensionFilter jpgFilter = new FileNameExtensionFilter( "JPG images", "jpg" );
+                    FileNameExtensionFilter pngFilter = new FileNameExtensionFilter( "PNG images", "png" );
 
                     dlg.addChoosableFileFilter( gifFilter );
                     dlg.addChoosableFileFilter( jpgFilter );
                     dlg.addChoosableFileFilter( pngFilter );
                     
-                    dlg.setFileFilter( pngFilter );
+                    if( lastFilter != null )
+                        dlg.setFileFilter( lastFilter );
+                    else
+                        dlg.setFileFilter( pngFilter );
+                    
                     if( dlg.showSaveDialog( WallpaperCreator.this ) == JFileChooser.APPROVE_OPTION ) {
+                        
                         config.memDest = dlg.getSelectedFile().getAbsolutePath();
                         config.memDestFormat = "png";
                         FileNameExtensionFilter filter = (FileNameExtensionFilter)dlg.getFileFilter();
+                        lastFilter = filter;
+                        
                         if( filter.getDescription().startsWith( "GIF" ) )
                             config.memDestFormat = "gif";
                         else if( filter.getDescription().startsWith( "JPG" ) )
@@ -555,8 +622,31 @@ public class WallpaperCreator extends JFrame {
                     break;
                 }
 
+                case "view.Statusbar": {
+                    JMenu viewMenu = mMenubar.getMenu( 1 );
+                    if( sbar.isVisible() ) {
+                        sbar.setVisible( false );
+                        ((JCheckBoxMenuItem)viewMenu.getMenuComponent( 0 )).setSelected( false );
+                    } else {
+                        sbar.setVisible( true );
+                        ((JCheckBoxMenuItem)viewMenu.getMenuComponent( 0 )).setSelected( true );
+                    }
+                    break;
+                }
+                
+                case "view.Toolbar": {
+                    JMenu viewMenu = mMenubar.getMenu( 1 );
+                    if( mToolbar.isVisible() ) {
+                        mToolbar.setVisible( false );
+                        ((JCheckBoxMenuItem)viewMenu.getMenuComponent( 1 )).setSelected( false );
+                    } else {
+                        mToolbar.setVisible( true );
+                        ((JCheckBoxMenuItem)viewMenu.getMenuComponent( 1 )).setSelected( true );
+                    }
+                    break;
+                }
+                
                 case "view.Preview": {
-                    showMessageDialog( null, "Press the escape key to close the preview window", "Information", JOptionPane.INFORMATION_MESSAGE );
                     Preview view = new Preview( config.memImage );
                     view.setVisible( true );
                     break;
@@ -568,8 +658,14 @@ public class WallpaperCreator extends JFrame {
                     break;
                 }
                 
+                case "help.Donate": {
+                    openURL( donateURL );
+                    break;
+                }
+                
                 case "help.About": {
-                    showMessageDialog( null, "Command not implemented!", "Information", JOptionPane.INFORMATION_MESSAGE );
+                    AboutDialog dlg = new AboutDialog();
+                    dlg.setVisible( true );
                     break;
                 }
             }
@@ -583,6 +679,9 @@ public class WallpaperCreator extends JFrame {
             JPopupMenu menu = (JPopupMenu)e.getSource();
             menu.getComponent( 1 ).setEnabled( config.isModified );
             menu.getComponent( 2 ).setEnabled( config.isModified );
+            if( mToolbar != null ) {
+                mToolbar.getButton( 1 ).setEnabled( config.isModified );
+            }
         }
 
         @Override
@@ -599,6 +698,9 @@ public class WallpaperCreator extends JFrame {
         public void popupMenuWillBecomeVisible( PopupMenuEvent e ) {
             JPopupMenu menu = (JPopupMenu)e.getSource();
             menu.getComponent( 3 ).setEnabled( !config.imgSrc.isEmpty() );
+            if( mToolbar != null ) {
+                mToolbar.getButton( 3 ).setEnabled( !config.imgSrc.isEmpty() );
+            }
         }
 
         @Override
@@ -607,5 +709,50 @@ public class WallpaperCreator extends JFrame {
         @Override
         public void popupMenuCanceled( PopupMenuEvent e ) {}
         
+    }
+    
+    private void openURL( String url ) {
+        String[] browsers = { "google-chrome", "firefox", "opera",
+            "epiphany", "konqueror", "conkeror", "midori", "kazehakase", "mozilla" };
+        String errMsg = "Error attempting to launch web browser";
+
+        /**
+         * Opens the specified web page in the user's default browser
+         * @param url A web address (URL) of a web page (ex: "http://www.google.com/")
+        */
+        try {  //attempt to use Desktop library from JDK 1.6+
+            Class<?> d = Class.forName( "java.awt.Desktop" );
+            d.getDeclaredMethod( "browse", new Class[] {java.net.URI.class} ).invoke(
+                d.getDeclaredMethod( "getDesktop" ).invoke( null ),
+                new Object[] { java.net.URI.create( url ) } );
+           //above code mimicks:  java.awt.Desktop.getDesktop().browse()
+        }
+        catch ( Exception ignore ) {  //library not available or failed
+            String osName = System.getProperty( "os.name" );
+            try {
+                if ( osName.startsWith( "Mac OS" ) ) {
+                    Class.forName( "com.apple.eio.FileManager" ).getDeclaredMethod(
+                        "openURL", new Class[] { String.class }).invoke( null,
+                        new Object[] { url } );
+                
+                } else if ( osName.startsWith( "Windows" ) ) {
+                    Runtime.getRuntime().exec(
+                        "rundll32 url.dll,FileProtocolHandler " + url );
+                  
+                } else { //assume Unix or Linux
+                    String browser = null;
+                    for ( String b : browsers )
+                        if ( browser == null && Runtime.getRuntime().exec( new String[]
+                            { "which", b } ).getInputStream().read() != -1 )
+                            Runtime.getRuntime().exec( new String[] { browser = b, url } );
+                    
+                    if ( browser == null )
+                        throw new Exception( Arrays.toString( browsers ) );
+                }
+            }
+            catch ( Exception e ) {
+               JOptionPane.showMessageDialog( WallpaperCreator.this, errMsg + "\n" + e.toString() );
+            }
+        }
     }
 }

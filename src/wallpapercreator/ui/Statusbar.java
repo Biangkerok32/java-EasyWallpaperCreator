@@ -14,7 +14,9 @@ import javax.swing.BorderFactory;
 import javax.swing.ImageIcon;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
+import javax.swing.JProgressBar;
 import javax.swing.UIManager;
+import javax.swing.border.Border;
 
 /**
  *
@@ -28,6 +30,7 @@ public class Statusbar extends JPanel {
     public final static int RIGHT  = JLabel.RIGHT;
     
     private int minCY = 28;
+    private Border cmpBorder = BorderFactory.createLineBorder( UIManager.getColor( "controlShadow" ), 1 );
     
     @SuppressWarnings("OverridableMethodCallInConstructor")
     public Statusbar() {
@@ -58,7 +61,7 @@ public class Statusbar extends JPanel {
     
     public Component addPanel( int width ) {
         JLabel cmp = new JLabel();
-        cmp.setBorder( BorderFactory.createLineBorder( UIManager.getColor( "controlShadow" ), 1 ) );
+        cmp.setBorder( cmpBorder ); //BorderFactory.createLineBorder( UIManager.getColor( "controlShadow" ), 1 ) );
         add( cmp );
         cmp.setMinimumSize( new Dimension( width, minCY-8 ) );
         return cmp;
@@ -82,6 +85,27 @@ public class Statusbar extends JPanel {
         if( panel >= 0 && panel < getComponentCount() ) {
             ((JLabel)getComponent( panel )).setText( text );
             ((JLabel)getComponent( panel )).repaint();
+        }
+    }
+    
+    public Component addProgress( int width, int maxValue ) {
+        JProgressBar cmp = new JProgressBar();
+        cmp.setBorder( cmpBorder ); //BorderFactory.createLineBorder( UIManager.getColor( "controlShadow" ), 1 ) );
+        cmp.setMaximum( maxValue );
+        add( cmp );
+        cmp.setMinimumSize( new Dimension( width, minCY-8 ) );
+        return cmp;
+    }
+    
+    public void setProgress( int panel, int progress ) {
+        if( getComponent( panel ) instanceof JProgressBar ) {
+            ((JProgressBar)getComponent( panel )).setValue( progress );
+        }
+    }
+    
+    public void removeProgress( int panel ) {
+        if( getComponent( panel ) instanceof JProgressBar ) {
+            remove( panel );
         }
     }
     

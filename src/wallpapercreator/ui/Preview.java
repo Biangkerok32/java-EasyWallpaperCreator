@@ -21,6 +21,7 @@ public class Preview extends JDialog {
     public final static String TAG = Preview.class.getSimpleName();
     
     private BufferedImage srcImage = null;
+    private String closeMsg = "Press the Esc key to close";
     
     @SuppressWarnings("OverridableMethodCallInConstructor")
     public Preview( BufferedImage image ) {
@@ -35,21 +36,28 @@ public class Preview extends JDialog {
         
         addKeyListener( new KeyListener() {
             @Override
-            public void keyTyped(KeyEvent e) {
-                
-            }
+            public void keyTyped(KeyEvent e) {}
 
             @Override
             public void keyPressed(KeyEvent e) {
             }
 
             @Override
-            public void keyReleased(KeyEvent e) {
+            public void keyReleased( KeyEvent e ) {
                 if( e.getKeyCode() == KeyEvent.VK_ESCAPE ) {
                     dispose();
                 }
             }
         } );
+    }
+    
+    @Override
+    public void setVisible( boolean bVisible ) {
+        super.setVisible( bVisible );
+        if( bVisible ) {
+            PopupMsg pop = new PopupMsg( this, closeMsg );
+            pop.setVisible( true );
+        }
     }
     
     @Override
